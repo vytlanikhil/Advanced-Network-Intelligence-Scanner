@@ -155,11 +155,7 @@ Unauthorized network scanning without permission is illegal.
 
 ---
 
-# 📌 Resume Description
 
-Developed a modular Network Security Assessment Platform in Python featuring automated LAN discovery, multi-threaded port scanning, device classification, CVE intelligence integration, dynamic risk scoring engine, topology visualization, persistent scan history database, and a web-based monitoring dashboard.
-
----
 
 # 👨‍💻 Author
 
