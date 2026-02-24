@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, request, redirect, url_for
 import sqlite3
 import json
 from datetime import datetime
@@ -131,6 +131,42 @@ DASHBOARD_TEMPLATE = """
       color: #c6d8eb;
     }
 
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-decoration: none;
+      color: #d8e9fb;
+      background: rgba(16, 27, 40, 0.8);
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .btn:hover { border-color: rgba(201, 221, 245, 0.45); }
+    .btn.active { background: rgba(68, 209, 180, 0.18); border-color: rgba(68, 209, 180, 0.5); color: #bfffee; }
+    .btn-danger { background: rgba(255, 106, 106, 0.14); border-color: rgba(255, 106, 106, 0.45); color: #ffdada; }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -236,6 +272,7 @@ DASHBOARD_TEMPLATE = """
       .kpis { grid-template-columns: 1fr; }
       .meta { grid-template-columns: 1fr; }
       .stamp { width: 100%; text-align: center; }
+      .controls { align-items: stretch; }
     }
   </style>
 </head>
@@ -272,7 +309,19 @@ DASHBOARD_TEMPLATE = """
       </article>
     </section>
 
-    <h2 class=\"section-title\">Recent Scan Results</h2>
+    <div class=\"controls\">
+      <div class=\"filters\">
+        <a href=\"{{ url_for('home') }}\" class=\"btn {% if active_filter == 'ALL' %}active{% endif %}\">All</a>
+        <a href=\"{{ url_for('home', risk='HIGH') }}\" class=\"btn {% if active_filter == 'HIGH' %}active{% endif %}\">High Risk</a>
+        <a href=\"{{ url_for('home', risk='MEDIUM') }}\" class=\"btn {% if active_filter == 'MEDIUM' %}active{% endif %}\">Medium Risk</a>
+        <a href=\"{{ url_for('home', open_only='1') }}\" class=\"btn {% if active_filter == 'OPEN' %}active{% endif %}\">Open Ports</a>
+      </div>
+      <form action=\"{{ url_for('delete_scans') }}\" method=\"post\" onsubmit=\"return confirm('Delete all scan history? This cannot be undone.');\">
+        <button type=\"submit\" class=\"btn btn-danger\">Delete All Scans</button>
+      </form>
+    </div>
+
+    <h2 class=\"section-title\">Recent Scan Results{% if active_filter != 'ALL' %} ({{ active_filter }}){% endif %}</h2>
 
     {% if scans %}
       <section class=\"grid\">
@@ -343,6 +392,9 @@ def _format_timestamp(value):
 
 @app.route("/")
 def home():
+    risk_filter = str(request.args.get("risk", "")).upper()
+    open_only = request.args.get("open_only") == "1"
+
     rows = []
     try:
         conn = sqlite3.connect("scan_history.db")
@@ -391,16 +443,39 @@ def home():
         )
         total_open_ports += len(normalized_ports)
 
+    filtered_scans = scans
+    active_filter = "ALL"
+    if risk_filter in {"HIGH", "MEDIUM"}:
+        filtered_scans = [scan for scan in scans if scan["risk_level"] == risk_filter]
+        active_filter = risk_filter
+    elif open_only:
+        filtered_scans = [scan for scan in scans if scan["has_open_ports"]]
+        active_filter = "OPEN"
+
     return render_template_string(
         DASHBOARD_TEMPLATE,
-        scans=scans,
+        scans=filtered_scans,
         total_scans=len(scans),
         unique_targets=len({scan["target"] for scan in scans}),
         high_risk_count=sum(1 for scan in scans if scan["risk_level"] == "HIGH"),
         medium_risk_count=sum(1 for scan in scans if scan["risk_level"] == "MEDIUM"),
         open_ports_total=total_open_ports,
+        active_filter=active_filter,
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )
+
+
+@app.route("/delete-scans", methods=["POST"])
+def delete_scans():
+    try:
+        conn = sqlite3.connect("scan_history.db")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM scans")
+        conn.commit()
+        conn.close()
+    except sqlite3.Error:
+        pass
+    return redirect(url_for("home"))
 
 
 if __name__ == "__main__":
