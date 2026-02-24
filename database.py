@@ -88,10 +88,14 @@ def get_scan_count():
 
 
 def hard_reset_database():
-    # Reset to a fresh-clone state by dropping and recreating scan table.
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS scans")
-    conn.commit()
-    conn.close()
+    # Reset to a fresh-clone state by removing the DB file; fall back to drop if locked.
+    try:
+        if DB_PATH.exists():
+            DB_PATH.unlink()
+    except PermissionError:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS scans")
+        conn.commit()
+        conn.close()
     init_db()
