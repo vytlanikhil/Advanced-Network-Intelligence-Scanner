@@ -2,7 +2,7 @@ from flask import Flask, render_template_string, request, redirect, url_for
 import sqlite3
 import json
 from datetime import datetime
-from database import DB_PATH, init_db, clear_scans
+from database import DB_PATH, init_db, clear_scans, get_scan_count, hard_reset_database
 
 app = Flask(__name__)
 
@@ -87,6 +87,14 @@ DASHBOARD_TEMPLATE = """
       padding: 10px 12px;
       font-size: 0.82rem;
       white-space: nowrap;
+    }
+
+    .db-hint {
+      margin-top: 10px;
+      color: var(--muted);
+      font-family: \"IBM Plex Mono\", monospace;
+      font-size: 0.74rem;
+      word-break: break-all;
     }
 
     .kpis {
@@ -292,6 +300,7 @@ DASHBOARD_TEMPLATE = """
       <div>
         <h1 class=\"title\">Network Intelligence Dashboard</h1>
         <p class=\"subtitle\">Live visibility of discovered hosts, exposed services, and risk posture from persisted scanner history.</p>
+        <div class=\"db-hint\">DB: {{ db_path }} | Rows: {{ db_rows }}</div>
       </div>
       <div class=\"stamp\">Generated {{ generated_at }}</div>
     </header>
@@ -416,6 +425,7 @@ def home():
         delete_notice = f"Deleted {deleted_value} scan record(s)."
 
     rows = []
+    db_rows = 0
     try:
         init_db()
         conn = _get_db_connection()
@@ -423,6 +433,7 @@ def home():
         cursor.execute("SELECT target, result, timestamp FROM scans ORDER BY timestamp DESC")
         rows = cursor.fetchall()
         conn.close()
+        db_rows = len(rows)
     except sqlite3.Error:
         rows = []
 
@@ -483,6 +494,8 @@ def home():
         open_ports_total=total_open_ports,
         active_filter=active_filter,
         delete_notice=delete_notice,
+        db_path=str(DB_PATH),
+        db_rows=db_rows,
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )
 
@@ -490,9 +503,18 @@ def home():
 @app.route("/delete-scans", methods=["POST", "GET"])
 def delete_scans():
     try:
-        before_count = clear_scans()
+        before_count = get_scan_count()
+        clear_scans()
+        after_clear_count = get_scan_count()
+        if after_clear_count != 0:
+            hard_reset_database()
+        after_count = get_scan_count()
+        if after_count != 0:
+            return f"Failed to clear scan history. Rows still present: {after_count}", 500
     except sqlite3.Error as exc:
         return f"Failed to delete scans: {exc}", 500
+    except PermissionError as exc:
+        return f"Failed to reset database file: {exc}", 500
     return redirect(url_for("home", deleted=before_count))
 
 

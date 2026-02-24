@@ -62,3 +62,29 @@ def clear_scans():
     conn.commit()
     conn.close()
     return deleted_count
+
+
+def get_scan_count():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target TEXT,
+            result TEXT,
+            timestamp TEXT
+        )
+        """
+    )
+    cursor.execute("SELECT COUNT(*) FROM scans")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+
+def hard_reset_database():
+    # Recreate the DB file to guarantee an empty history state.
+    if DB_PATH.exists():
+        DB_PATH.unlink()
+    init_db()
