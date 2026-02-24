@@ -57,7 +57,11 @@ def clear_scans():
     deleted_count = cursor.fetchone()[0]
 
     cursor.execute("DELETE FROM scans")
-    cursor.execute("DELETE FROM sqlite_sequence WHERE name='scans'")
+    try:
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name='scans'")
+    except sqlite3.Error:
+        # sqlite_sequence may not exist yet; clearing rows is enough.
+        pass
 
     conn.commit()
     conn.close()
@@ -84,7 +88,10 @@ def get_scan_count():
 
 
 def hard_reset_database():
-    # Recreate the DB file to guarantee an empty history state.
-    if DB_PATH.exists():
-        DB_PATH.unlink()
+    # Reset to a fresh-clone state by dropping and recreating scan table.
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS scans")
+    conn.commit()
+    conn.close()
     init_db()

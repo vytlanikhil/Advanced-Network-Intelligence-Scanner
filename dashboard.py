@@ -1,8 +1,8 @@
-from flask import Flask, render_template_string, request, redirect, url_for
+from flask import Flask, render_template_string, request, redirect, url_for, make_response
 import sqlite3
 import json
 from datetime import datetime
-from database import DB_PATH, init_db, clear_scans, get_scan_count, hard_reset_database
+from database import DB_PATH, init_db, get_scan_count, hard_reset_database
 
 app = Flask(__name__)
 
@@ -484,7 +484,7 @@ def home():
         filtered_scans = [scan for scan in scans if scan["has_open_ports"]]
         active_filter = "OPEN"
 
-    return render_template_string(
+    html = render_template_string(
         DASHBOARD_TEMPLATE,
         scans=filtered_scans,
         total_scans=len(scans),
@@ -498,16 +498,18 @@ def home():
         db_rows=db_rows,
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )
+    response = make_response(html)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.route("/delete-scans", methods=["POST", "GET"])
 def delete_scans():
     try:
         before_count = get_scan_count()
-        clear_scans()
-        after_clear_count = get_scan_count()
-        if after_clear_count != 0:
-            hard_reset_database()
+        hard_reset_database()
         after_count = get_scan_count()
         if after_count != 0:
             return f"Failed to clear scan history. Rows still present: {after_count}", 500
