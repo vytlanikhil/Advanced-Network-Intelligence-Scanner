@@ -226,7 +226,7 @@ DASHBOARD_TEMPLATE = """
     .risk-medium { color: #ffe6c2; background: rgba(255, 177, 74, 0.16); border-color: rgba(255, 177, 74, 0.52); }
     .risk-low { color: #d9f9e3; background: rgba(109, 208, 139, 0.16); border-color: rgba(109, 208, 139, 0.45); }
     .status-open { color: #b8fff0; background: rgba(68, 209, 180, 0.14); border-color: rgba(68, 209, 180, 0.45); }
-    .btn-copy { margin-left: 6px; }
+    .btn-copy { margin-left: 6px; padding: 4px 8px; font-size: 0.72rem; }
 
     .meta {
       display: grid;
