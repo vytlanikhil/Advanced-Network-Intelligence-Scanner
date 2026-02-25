@@ -6,12 +6,15 @@ import os
 import shutil
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_DIR = BASE_DIR / "data"
-DB_DIR.mkdir(exist_ok=True)
+# Linux-first writable location; falls back to ~/.local/share if XDG_DATA_HOME set, else home/.local/share
+DATA_HOME = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+DB_DIR = DATA_HOME / "advanced_network_intelligence_scanner"
+DB_DIR.mkdir(parents=True, exist_ok=True)
 
-LEGACY_DB = BASE_DIR / "scan_history.db"
+LEGACY_DB_ROOT = BASE_DIR / "scan_history.db"
+LEGACY_DB_DATA = BASE_DIR / "data" / "scan_history.db"
 DB_PATH = DB_DIR / "scan_history.db"
-CANDIDATE_DB_PATHS = {DB_PATH, LEGACY_DB, Path.cwd() / "scan_history.db"}
+CANDIDATE_DB_PATHS = {DB_PATH, LEGACY_DB_ROOT, LEGACY_DB_DATA, Path.cwd() / "scan_history.db"}
 
 
 def ensure_db_writable(path: Path):
@@ -23,12 +26,16 @@ def ensure_db_writable(path: Path):
 
 
 def _migrate_legacy_db():
-    if LEGACY_DB.exists() and not DB_PATH.exists():
-        try:
-            shutil.copy2(LEGACY_DB, DB_PATH)
-            os.chmod(DB_PATH, 0o666)
-        except Exception:
-            pass
+    if DB_PATH.exists():
+        return
+    for legacy in (LEGACY_DB_DATA, LEGACY_DB_ROOT):
+        if legacy.exists():
+            try:
+                shutil.copy2(legacy, DB_PATH)
+                os.chmod(DB_PATH, 0o666)
+                return
+            except Exception:
+                pass
 
 
 def get_connection():
@@ -131,5 +138,7 @@ def hard_reset_database():
             conn.commit()
             conn.close()
             removed = True
+    # Ensure target directory exists and db recreated in primary location
+    DB_DIR.mkdir(parents=True, exist_ok=True)
     init_db()
     return removed
