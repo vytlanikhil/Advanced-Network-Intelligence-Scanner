@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 import os
 
-# Single, predictable DB location (current working directory)
-DB_PATH = Path.cwd() / "scan_history.db"
+# Single, predictable DB location relative to this file
+DB_PATH = Path(__file__).parent / "scan_history.db"
 
 
 def ensure_db():

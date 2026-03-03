@@ -10,6 +10,13 @@ from topology_visualizer import generate_topology
 from report_generator import generate_json_report, generate_html_report
 from database import init_db, save_scan
 
+import threading
+from dashboard import app
+
+def start_dashboard():
+    # Run dashboard on port 5000 in background thread, without reloader
+    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+
 def main():
     print("\n=== Intelligent Network Scanner ===")
     print("Auto scan local network : sudo python main.py --auto")
@@ -22,6 +29,11 @@ def main():
     parser.add_argument("--auto", action="store_true", help="Auto-detect local network")
 
     args = parser.parse_args()
+
+    # Start the Dashboard silently in the background
+    dashboard_thread = threading.Thread(target=start_dashboard, daemon=True)
+    dashboard_thread.start()
+    print("[bold green]Dashboard started in background at http://127.0.0.1:5000[/bold green]\n")
 
     init_db()
     port_list = parse_ports(args.ports)
