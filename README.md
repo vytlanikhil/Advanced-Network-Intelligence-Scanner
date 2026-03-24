@@ -59,6 +59,9 @@ pip install -r requirements.txt
 python dashboard.py
 # browse http://127.0.0.1:5000
 ```
+
+> **Note**: The dashboard at `localhost` works until a new program execution starts. After a scan finishes, you must restart `dashboard.py` to view the updated results.
+
 Features: KPI cards, filters (High/Medium/Open Ports/CVE), copy card info, delete-all scans, responsive layout, no-cache rendering.
 
 ## Outputs
